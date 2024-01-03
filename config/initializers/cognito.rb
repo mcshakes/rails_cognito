@@ -20,7 +20,9 @@ class Cognito
     auth_object = {
       user_pool_id: @aws_credentials.AWS_COGNITO_POOL_ID,
       client_id: @aws_credentials.AWS_COGNITO_APP_CLIENT_ID,
-      auth_flow: 'ADMIN_NO_SRP_AUTH',
+      # auth_flow: 'ADMIN_NO_SRP_AUTH',
+      # auth_flow: 'ALLOW_USER_SRP_AUTH',
+      auth_flow: 'ALLOW_USER_PASSWORD_AUTH',
       auth_parameters: user_object
     }
 
