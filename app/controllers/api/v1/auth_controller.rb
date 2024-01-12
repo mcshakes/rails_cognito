@@ -1,6 +1,7 @@
 module Api
   module V1
     class AuthController < ApplicationController
+      
       def sign_in
         user_object = {
           USERNAME: params[:email],
@@ -27,13 +28,29 @@ module Api
 
       def register 
         puts "Incoming request params: #{params.inspect}"
+
         user_object = {
           USERNAME: params[:email],
           PASSWORD: params[:password]
         }
         
+        user = User.new(
+                email: params[:email],
+                first_name: params[:first_name],
+                last_name: params[:last_name],
+                role: params[:role]
+              )
+
         begin
-          render json: aws_cognito_client.register_user(user_object)
+
+          ActiveRecord::Base.transaction do
+            user.save!
+            aws_cognito_client.register_user(user_object)
+          end          
+          render json: { message: 'User registered successfully' }      
+          
+        rescue ActiveRecord::RecordInvalid => e
+          render json: { error: e.message }, status: :unprocessable_entity
         rescue => e
           handle_authentication_error(e)
         end
