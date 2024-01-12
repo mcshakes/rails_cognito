@@ -1,15 +1,23 @@
 module Api
   module V1
     class AuthController < ApplicationController
+      
       def sign_in
         user_object = {
           USERNAME: params[:email],
           PASSWORD: params[:password]
-        }
-        puts "Incoming request params: #{params.inspect}"
+        }                
+        
         begin
-          response = aws_cognito_client.authenticate(user_object)
-          handle_authentication_response(response)
+          @user = User.find_by( email: user_object[:USERNAME] )
+
+          if @user
+            response = aws_cognito_client.authenticate(user_object)
+            handle_authentication_response(response)
+          else
+            render json: { type: 'error', message: 'no user' }
+          end
+          
         rescue => e
           handle_authentication_error(e)
         end
@@ -27,13 +35,29 @@ module Api
 
       def register 
         puts "Incoming request params: #{params.inspect}"
+
         user_object = {
           USERNAME: params[:email],
           PASSWORD: params[:password]
         }
         
+        user = User.new(
+                email: params[:email],
+                first_name: params[:first_name],
+                last_name: params[:last_name],
+                role: params[:role]
+              )
+
         begin
-          render json: aws_cognito_client.register_user(user_object)
+
+          ActiveRecord::Base.transaction do
+            user.save!
+            aws_cognito_client.register_user(user_object)
+          end          
+          render json: { message: 'User registered successfully' }      
+
+        rescue ActiveRecord::RecordInvalid => e
+          render json: { error: e.message }, status: :unprocessable_entity
         rescue => e
           handle_authentication_error(e)
         end
@@ -47,7 +71,7 @@ module Api
         
       def handle_authentication_response(response)
         if response.authentication_result
-          Rails.logger.info("User successfully authenticated")
+          Rails.logger.info("User successfully logged in")
           render json: { success: true, authentication_result: response.authentication_result }
         else
           Rails.logger.error("Authentication failed: #{response}")
